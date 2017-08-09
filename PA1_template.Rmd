@@ -3,23 +3,117 @@ title: "Reproducible Research: Peer Assessment 1"
 output: 
   html_document:
     keep_md: true
+    author: Lingling Zhang
 ---
+## Introduction
+It is now possible to collect a large amount of data about personal movement using activity monitoring devices such as a Fitbit, Nike Fuelband, or Jawbone Up. These type of devices are part of the “quantified self” movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. But these data remain under-utilized both because the raw data are hard to obtain and there is a lack of statistical methods and software for processing and interpreting the data.
+
+This assignment makes use of data from a personal activity monitoring device. This device collects data at 5 minute intervals through out the day. The data consists of two months of data from an anonymous individual collected during the months of October and November, 2012 and include the number of steps taken in 5 minute intervals each day.
+
 
 
 ## Loading and preprocessing the data
-
+```{r, echo=TRUE}
+activity <- read.csv("activity.csv")
+library(ggplot2)
+library(plyr)
+## clean NAs in "steps" column
+activitynoNA <- activity[!is.na(activity$steps),]
+```
 
 
 ## What is mean total number of steps taken per day?
 
+```{r, echo=TRUE}
+# calculate total steps
+totalSteps <- aggregate(activity$steps ~ activity$date, FUN=sum, na.rm = TRUE)
+activity$date <- as.Date(activity$date, "%Y-%m-%d")
+totalSteps
+summary(totalSteps)
+# mean number of steps for each day
+meanSteps <- mean(totalSteps$`activity$steps`)
+meanSteps
+#dedian number if steps for each day
+medianSteps <- median(totalSteps$`activity$steps`)
+medianSteps
+# let's create a histogram to view this
+hist(totalSteps$`activity$steps`, 
+    main="Total Steps per Day", 
+    xlab="Number of Steps per Day", 
+    ylab = "Interval",
+    col="blue",
+    breaks=50)
+
+```
 
 
 ## What is the average daily activity pattern?
 
+```{r, echo=TRUE}
+## five minute average using steps to interval - FUN = mean instead of sum
+fiveminInterval <- aggregate(steps ~ interval, data = activity, FUN = mean, na.rm = TRUE)
+## line chart
+plot(x = fiveminInterval$interval, 
+    y = fiveminInterval$steps, 
+    type = "l", 
+    col = "blue",
+    xlab = "5-minute Intervals",
+    ylab = "Average Steps Taken ~ Days",
+    main = "Average Daily Activity Pattern")
 
+# what is the macimum number of steps within a 5-minute interval?
+maxsteps <- fiveminInterval$interval[which.max(fiveminInterval$steps)]
+maxsteps
+
+```
 
 ## Imputing missing values
 
+```{r, echo=TRUE}
+# calculating total number of missing values in dataset
+sum(is.na(activity$steps))
+# create new dataset that contains missing values
+activity2 <- activity
+nas<- is.na(activity2$steps)
+avg_interval<- tapply(activity2$steps, activity2$interval, mean, na.rm=TRUE, simplify = TRUE)
+activity2$steps[nas] <- avg_interval[as.character(activity2$interval[nas])]
+names(activity2)
+
+# create a histogram to view daily activity with missing data filled in 
+library(ggplot2)
+library(plyr)
+library(dplyr)
+
+totalSteps2<- activity2%>%
+        group_by(date)%>%
+        summarise(total_steps = sum(steps, na.rm=TRUE))
+ggplot(totalSteps2, aes(x = total_steps)) +
+        geom_histogram(fill = "blue", binwidth = 250)+
+        labs(title = "Daily Steps including Missing values", x = "5-minute Intervals", y = "Number of Steps")
+mean2<- mean(totalSteps2$total_steps, na.rm=TRUE)
+mean2
+median2<- median(totalSteps2$total_steps, na.rm=TRUE)
+median2
+```
 
 
 ## Are there differences in activity patterns between weekdays and weekends?
+```{r, echo=TRUE}
+## Add the new weekend/weekday field
+activity2<- activity2%>%
+        mutate(typeofday= ifelse(weekdays(activity2$date)=="Saturday" | weekdays(activity2$date)=="Sunday", "Weekend", "Weekday"))
+head(activity2)
+```
+
+```{r, echo=TRUE}
+fiveminInterval2<- aggregate(steps ~ interval, data = activity2, FUN = mean, na.rm = TRUE)
+head(fiveminInterval2)
+```
+```{r,echo=TRUE}
+# plot the activity pattern of weekdays and weenkends
+library(ggplot2)
+ggplot(activity2, aes(x =interval , y=steps)) +
+       geom_line() +
+       labs(title = "Ave Daily Steps (type of day)", x = "Interval", y = "Total Number of Steps") +
+       facet_wrap(~ typeofday, ncol = 1, nrow=2)
+```
